@@ -602,17 +602,74 @@ class UIController {
         UIController.showToast('¡Código QR generado con éxito!', 'success');
     }
 
-    // Descargar QR Individual
-    handleDownloadSingle() {
-        const canvas = document.getElementById('qrCanvas');
-        const text = document.getElementById('qrText').value || 'qr';
-        const filename = InputValidator.sanitizeFilename(text, 50);
-        
+// Descargar QR Individual
+handleDownloadSingle() {
+    const canvas = document.getElementById('qrCanvas');
+    const text = document.getElementById('qrText').value || 'qr';
+    const filename = InputValidator.sanitizeFilename(text, 50);
+
+    const dataUrl = canvas.toDataURL('image/png');
+
+    // Detectar Safari en iPhone/iPad
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    if (isIOS || isSafari) {
+        // Safari: abrir el PNG en una nueva pestaña.
+        // Desde allí se puede mantener pulsada la imagen y
+        // elegir "Guardar en Fotos" o "Compartir".
+        const newWindow = window.open();
+
+        if (newWindow) {
+            newWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>${filename}.png</title>
+                    <style>
+                        body {
+                            margin: 0;
+                            padding: 20px;
+                            background: #f1f5f9;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                        }
+
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                            background: white;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <img src="${dataUrl}" alt="Código QR">
+                </body>
+                </html>
+            `);
+            newWindow.document.close();
+        } else {
+            // Si Safari bloquea la ventana emergente,
+            // mostramos el PNG en la pestaña actual.
+            window.location.href = dataUrl;
+        }
+
+    } else {
+        // Chrome, Edge, Firefox, etc.
+        // Mantener la descarga automática original.
         const link = document.createElement('a');
         link.download = `${filename}.png`;
-        link.href = canvas.toDataURL('image/png');
+        link.href = dataUrl;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
     }
+}
 
     // Generar Lote Múltiple
     async handleGenerateBatch() {
