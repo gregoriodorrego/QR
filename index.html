@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador QR Profesional (Offline + ZIP)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --success-hover: #059669;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --muted: #64748b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+        
+        .card { background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 900px; padding: 24px; position: relative; }
+        h1 { text-align: center; font-size: 1.5rem; margin-bottom: 8px; color: var(--primary); }
+        
+        .info-box { background: #eff6ff; border-left: 4px solid var(--primary); padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; color: #1e40af; }
+        
+        /* Tabs de navegación */
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 10px; }
+        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 8px; font-weight: 600; font-size: 0.95rem; transition: all 0.2s; color: var(--muted); }
+        .tab.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem; }
+        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem; transition: border-color 0.2s; font-family: inherit; }
+        textarea { resize: vertical; min-height: 140px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; line-height: 1.5; }
+        input[type="text"]:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+        .btn-secondary { background: #e2e8f0; color: var(--text); }
+        .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; opacity: 0.7; }
+        .btn-sm { padding: 8px 12px; font-size: 0.85rem; margin-top: 0; width: auto; }
+        
+        /* Contenedores de vista previa */
+        .preview-container { margin-top: 24px; text-align: center; }
+        .preview-box { 
+            background-color: #ffffff;
+            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; align-items: center; justify-content: center; min-height: 250px;
+        }
+        
+        #qrPreview { max-width: 100%; height: auto; display: none; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
+        #qrCanvas { display: none; }
+        
+        /* Barra de progreso */
+        .progress-wrapper { margin: 16px 0; display: none; }
+        .progress-wrapper.active { display: block; }
+        .progress-bar-bg { background: #e2e8f0; border-radius: 999px; height: 12px; overflow: hidden; margin-top: 8px; }
+        .progress-bar-fill { background: linear-gradient(90deg, var(--primary), #3b82f6); height: 100%; width: 0%; transition: width 0.3s ease; border-radius: 999px; }
+        .progress-text { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+        
+        /* Rejilla de resultados múltiples */
+        .batch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }
+        .batch-item { background: white; border: 2px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: all 0.2s; }
+        .batch-item:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15); transform: translateY(-2px); }
+        .batch-item canvas { width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; border-radius: 6px; background: white; }
+        .batch-item .item-name { font-size: 0.75rem; color: var(--muted); text-align: center; word-break: break-all; max-height: 2.4em; overflow: hidden; line-height: 1.2; font-family: 'Consolas', monospace; }
+        .batch-item .btn-sm { width: 100%; }
+        
+        .batch-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .batch-actions .btn { flex: 1; }
+        
+        .stats-box { background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .stats-box strong { color: var(--text); }
+
+        /* Notificaciones y ventanas emergentes (Toasts & Modals) */
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            background: #1e293b; color: white; padding: 12px 20px;
+            border-radius: 8px; font-size: 0.9rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            display: flex; align-items: center; gap: 10px; opacity: 0;
+            transform: translateY(20px); transition: all 0.3s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.warning { background: #d97706; }
+        .toast.danger { background: #dc2626; }
+        .toast.success { background: #059669; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(2px);
+            z-index: 9998; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .modal-box {
+            background: white; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); text-align: center;
+        }
+        .modal-box h3 { margin-bottom: 10px; font-size: 1.2rem; }
+        .modal-box p { font-size: 0.9rem; color: var(--muted); margin-bottom: 20px; }
+        .modal-buttons { display: flex; gap: 10px; }
+
+        @media (max-width: 600px) { 
+            .grid-2 { grid-template-columns: 1fr; } 
+            .batch-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>📱 Generador de QR</h1>
+    
+    <div class="info-box">
+        💡 <strong>Funciona 100% sin internet.</strong> Todo se crea de forma rápida y privada directamente en tu navegador.
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="single">📱 Individual</div>
+        <div class="tab" data-tab="batch">📑 Múltiples</div>
+    </div>
+
+    <!-- ============ MODO INDIVIDUAL ============ -->
+    <div class="tab-content active" id="tab-single">
+        <div class="form-group">
+            <label for="qrText">Texto o URL</label>
+            <input type="text" id="qrText" placeholder="Ej: https://ejemplo.com">
+        </div>
+
+        <div class="form-group">
+            <label for="qrType">Tipo de QR</label>
+            <select id="qrType">
+                <option value="texto" selected>Solo texto</option>
+                <option value="url">Enlace web</option>
+            </select>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="qrSize">Tamaño (px)</label>
+                <select id="qrSize">
+                    <option value="300" selected>Pequeño (300px)</option>
+                    <option value="500">Mediano (500px)</option>
+                    <option value="1000">Grande (1000px)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="qrBg">Fondo</label>
+                <select id="qrBg">
+                    <option value="white">Blanco</option>
+                    <option value="transparent">Transparente</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnGenerateSingle">⚡ Generar QR</button>
+
+        <div class="preview-container">
+            <div class="preview-box">
+                <img id="qrPreview" alt="Vista previa del QR">
+                <span id="placeholderText" style="color: #94a3b8;">La vista previa aparecerá aquí</span>
+            </div>
+            <canvas id="qrCanvas"></canvas>
+            <button class="btn btn-success" id="downloadBtn" disabled>💾 Descargar PNG</button>
+        </div>
+    </div>
+
+    <!-- ============ MODO LOTE ============ -->
+    <div class="tab-content" id="tab-batch">
+        <div class="form-group">
+            <label for="batchInput">Contenido (una línea = un QR) - Pega aquí los textos</label>
+            <textarea id="batchInput" placeholder="Pega aquí tu contenido. Ejemplos:&#10;https://ejemplo.com/1&#10;https://ejemplo.com/2&#10;Juan Pérez,juan@mail.com,Cliente&#10;Producto A,SKU001,$100"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="batchType">Tipo de QR</label>
+            <select id="batchType">
+                <option value="texto" selected>Solo texto</option>
+                <option value="url">Enlace web</option>
+            </select>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Tamaño (px)</label>
+                <select id="batchSize">
+                    <option value="300" selected>Pequeño (300px)</option>
+                    <option value="500">Mediano (500px)</option>
+                    <option value="800">Grande (800px)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fondo</label>
+                <select id="batchBg">
+                    <option value="white" selected>Blanco</option>
+                    <option value="transparent">Transparente</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="batchGenerateBtn">⚡ Generar Lote de QRs</button>
+
+        <div class="progress-wrapper" id="progressWrapper">
+            <div class="progress-text">
+                <span id="progressLabel">Generando QR 0 de 0...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="stats-box" id="statsBox" style="display:none;">
+            <span>✅ <strong id="statCount">0</strong> QRs generados</span>
+            <span>📦 Listos para comprimir en ZIP</span>
+        </div>
+
+        <div class="batch-actions" id="batchActions" style="display:none;">
+            <button class="btn btn-success" id="downloadZipBtn">📦 Descargar Todos (.ZIP)</button>
+            <button class="btn btn-danger" id="btnClearBatch">🗑️ Limpiar</button>
+        </div>
+
+        <div class="batch-grid" id="batchGrid"></div>
+    </div>
+</div>
+
+<!-- Notificación emergente (Toast) -->
+<div class="toast" id="toastMessage"></div>
+
+<!-- Ventana de Confirmación (Modal) -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <h3 id="modalTitle">¿Estás seguro?</h3>
+        <p id="modalDescription">Esta acción eliminará los elementos generados.</p>
+        <div class="modal-buttons">
+            <button class="btn btn-secondary" id="modalBtnCancel">Cancelar</button>
+            <button class="btn btn-danger" id="modalBtnConfirm">Sí, Limpiar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MOTOR DE CÓDIGO QR EN CASO OFFLINE -->
+<script>
+var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(l=4*u+17),e(0,0),e(l-7,0),e(0,l-7),i(),o(),v(t,r),7<=u&&h(t),null==n&&(n=w(u,f,c)),d(n,r)}var u=t,f=y[r],g=null,l=0,n=null,c=[],s={},e=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||l<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||l<=r+n||(g[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},o=function(){for(var t=8;t<l-8;t+=1)null==g[t][6]&&(g[t][6]=t%2==0);for(var r=8;r<l-8;r+=1)null==g[6][r]&&(g[6][r]=r%2==0)},i=function(){for(var t=B.getPatternPosition(u),r=0;r<t.length;r+=1)for(var e=0;e<t.length;e+=1){var n=t[r],o=t[e];if(null==g[n][o])for(var i=-2;i<=2;i+=1)for(var a=-2;a<=2;a+=1)g[n+i][o+a]=-2==i||2==i||-2==a||2==a||0==i&&0==a}},h=function(t){for(var r=B.getBCHTypeNumber(u),e=0;e<18;e+=1){var n=!t&&1==(r>>e&1);g[Math.floor(e/3)][e%3+l-8-3]=n}for(e=0;e<18;e+=1){n=!t&&1==(r>>e&1);g[e%3+l-8-3][Math.floor(e/3)]=n}},v=function(t,r){for(var e=f<<3|r,n=B.getBCHTypeInfo(e),o=0;o<15;o+=1){var i=!t&&1==(n>>o&1);o<6?g[o][8]=i:o<8?g[o+1][8]=i:g[l-15+o][8]=i}for(o=0;o<15;o+=1){i=!t&&1==(n>>o&1);o<8?g[8][l-o-1]=i:o<9?g[8][15-o-1+1]=i:g[8][15-o-1]=i}g[l-8][8]=!t},d=function(t,r){for(var e=-1,n=l-1,o=7,i=0,a=B.getMaskFunction(r),u=l-1;0<u;u-=2)for(6==u&&(u-=1);;){for(var f=0;f<2;f+=1)if(null==g[n][u-f]){var c=!1;i<t.length&&(c=1==(t[i]>>>o&1)),a(n,u-f)&&(c=!c),g[n][u-f]=c,-1==(o-=1)&&(i+=1,o=7)}if((n+=e)<0||l<=n){n-=e,e=-e;break}}},w=function(t,r,e){for(var n=b.getRSBlocks(t,r),o=M(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=C(i[u],l.getLength()-1).mod(l);a[u]=new Array(l.getLength()-1);for(g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=0<=s?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};s.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=x(t);break;case"Alphanumeric":e=m(t);break;case"Byte":e=L(t);break;case"Kanji":e=D(t);break;default:throw"mode:"+r}c.push(e),n=null},s.isDark=function(t,r){if(t<0||l<=t||r<0||l<=r)throw t+","+r;return g[t][r]},s.getModuleCount=function(){return l},s.make=function(){if(u<1){for(var t=1;t<40;t++){for(var r=b.getRSBlocks(t,f),e=M(),n=0;n<c.length;n++){var o=c[n];e.put(o.getMode(),4),e.put(o.getLength(),B.getLengthInBits(o.getMode(),t)),o.write(e)}var i=0;for(n=0;n<r.length;n++)i+=r[n].dataCount;if(e.getLengthInBits()<=8*i)break}u=t}a(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){a(!0,e);var n=B.getLostPoint(s);(0==e||n<t)&&(t=n,r=e)}return r}())},s.createDataURL=function(o,t){o=o||2,t=void 0===t?4*o:t;var r=s.getModuleCount()*o+2*t,i=t,a=r-t;return I(r,r,function(t,r){if(i<=t&&t<a&&i<=r&&r<a){var e=Math.floor((t-i)/o),n=Math.floor((r-i)/o);return s.isDark(n,e)?0:1}return 1})},s.renderTo2dContext=function(t,r){r=r||2;for(var e=s.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=s.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)};var p=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return s.createASCII=function(){return""},s}i.stringToBytes=(i.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default;var r,t,a=1,u=2,o=4,f=8,y={L:1,M:0,Q:3,H:2},e=0,n=1,c=2,g=3,l=4,h=5,s=6,v=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],(t={}).getBCHTypeInfo=function(t){for(var r=t<<10;0<=d(r)-d(1335);)r^=1335<<d(r)-d(1335);return 21522^(t<<10|r)},t.getBCHTypeNumber=function(t){for(var r=t<<12;0<=d(r)-d(7973);)r^=7973<<d(r)-d(7973);return t<<12|r},t.getPatternPosition=function(t){return r[t-1]},t.getMaskFunction=function(t){switch(t){case e:return function(t,r){return(t+r)%2==0};case n:return function(t,r){return t%2==0};case c:return function(t,r){return r%3==0};case g:return function(t,r){return(t+r)%3==0};case l:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case h:return function(t,r){return t*r%2+t*r%3==0};case s:return function(t,r){return(t*r%2+t*r%3)%2==0};case v:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},t.getErrorCorrectPolynomial=function(t){for(var r=C([1],0),e=0;e<t;e+=1)r=r.multiply(C([1,w.gexp(e)],0));return r},t.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case o:case f:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case o:return 16;case f:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case o:return 16;case f:return 12;default:throw"mode:"+t}}},t.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);5<i&&(e+=3+i-5)}return e},t);function d(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r}var w=function(){for(var r=new Array(256),e=new Array(256),t=0;t<8;t+=1)r[t]=1<<t;for(t=8;t<256;t+=1)r[t]=r[t-4]^r[t-5]^r[t-6]^r[t-8];for(t=0;t<255;t+=1)e[r[t]]=t;return{glog:function(t){if(t<1)throw"glog("+t+")";return e[t]},gexp:function(t){for(;t<0;)t+=255;for(;256<=t;)t-=255;return r[t]}}}();function C(n,o){if(void 0===n.length)throw n.length+"/"+o;var r=function(){for(var t=0;t<n.length&&0==n[t];)t+=1;for(var r=new Array(n.length-t+o),e=0;e<n.length-t;e+=1)r[e]=n[e+t];return r}(),i={getAt:function(t){return r[t]},getLength:function(){return r.length},multiply:function(t){for(var r=new Array(i.getLength()+t.getLength()-1),e=0;e<i.getLength();e+=1)for(var n=0;n<t.getLength();n+=1)r[e+n]^=w.gexp(w.glog(i.getAt(e))+w.glog(t.getAt(n)));return C(r,0)},mod:function(t){if(i.getLength()-t.getLength()<0)return i;for(var r=w.glog(i.getAt(0))-w.glog(t.getAt(0)),e=new Array(i.getLength()),n=0;n<i.getLength();n+=1)e[n]=i.getAt(n);for(n=0;n<t.getLength();n+=1)e[n]^=w.gexp(w.glog(t.getAt(n))+r);return C(e,0).mod(t)}};return i}function p(){var e=[],o={writeByte:function(t){e.push(255&t)},writeShort:function(t){o.writeByte(t),o.writeByte(t>>>8)},writeBytes:function(t,r,e){r=r||0,e=e||t.length;for(var n=0;n<e;n+=1)o.writeByte(t[n+r])},writeString:function(t){for(var r=0;r<t.length;r+=1)o.writeByte(t.charCodeAt(r))},toByteArray:function(){return e}};return o}var k,A,b=(k=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],(A={}).getRSBlocks=function(t,r){var e=function(t,r){switch(r){case y.L:return k[4*(t-1)+0];case y.M:return k[4*(t-1)+1];case y.Q:return k[4*(t-1)+2];case y.H:return k[4*(t-1)+3];default:return}}(t,r);if(void 0===e)throw"bad rs block @ typeNumber:"+t+"/errorCorrectionLevel:"+r;for(var n,o,i=e.length/3,a=[],u=0;u<i;u+=1)for(var f=e[3*u+0],c=e[3*u+1],g=e[3*u+2],l=0;l<f;l+=1)a.push((n=g,o=void 0,(o={}).totalCount=c,o.dataCount=n,o));return a},A),M=function(){var e=[],n=0,o={getBuffer:function(){return e},getAt:function(t){var r=Math.floor(t/8);return 1==(e[r]>>>7-t%8&1)},put:function(t,r){for(var e=0;e<r;e+=1)o.putBit(1==(t>>>r-e-1&1))},getLengthInBits:function(){return n},putBit:function(t){var r=Math.floor(n/8);e.length<=r&&e.push(0),t&&(e[r]|=128>>>n%8),n+=1}};return o},x=function(t){var r=a,n=t,e={getMode:function(){return r},getLength:function(t){return n.length},write:function(t){for(var r=n,e=0;e+2<r.length;)t.put(o(r.substring(e,e+3)),10),e+=3;e<r.length&&(r.length-e==1?t.put(o(r.substring(e,e+1)),4):r.length-e==2&&t.put(o(r.substring(e,e+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return e},m=function(t){var r=u,n=t,e={getMode:function(){return r},getLength:function(t){return n.length},write:function(t){for(var r=n,e=0;e+1<r.length;)t.put(45*o(r.charAt(e))+o(r.charAt(e+1)),11),e+=2;e<r.length&&t.put(o(r.charAt(e)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return e},L=function(t){var r=o,e=i.stringToBytes(t),n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=0;r<e.length;r+=1)t.put(e[r],8)}};return n},D=function(t){throw"kanji not supported"},S=function(t){var e=t,n=0,o=0,i=0,r={read:function(){for(;i<8;){if(n>=e.length){if(0==i)return-1;throw"unexpected end of file./"+i}var t=e.charAt(n);if(n+=1,"="==t)return i=0,-1;t.match(/^\s$/)||(o=o<<6|a(t.charCodeAt(0)),i+=6)}var r=o>>>i-8&255;return i-=8,r}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return r},I=function(t,r,e){for(var n=function(t,r){var n=t,o=r,l=new Array(t*r),e={setPixel:function(t,r,e){l[r*n+t]=e},write:function(t){t.writeString("GIF87a"),t.writeShort(n),t.writeShort(o),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(n),t.writeShort(o),t.writeByte(0);var r=i(2);t.writeByte(2);for(var e=0;255<r.length-e;)t.writeByte(255),t.writeBytes(r,e,255),e+=255;t.writeByte(r.length-e),t.writeBytes(r,e,r.length-e),t.writeByte(0),t.writeString(";")}},i=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,o=h(),i=0;i<r;i+=1)o.add(String.fromCharCode(i));o.add(String.fromCharCode(r)),o.add(String.fromCharCode(e));var a=p(),u=function(t){var e=t,n=0,o=0,r={write:function(t,r){if(t>>>r!=0)throw"length over";for(;8<=n+r;)e.writeByte(255&(t<<n|o)),r-=8-n,t>>>=8-n,n=o=0;o|=t<<n,n+=r},flush:function(){0<n&&e.writeByte(o)}};return r}(a);u.write(r,n);var f=0,c=String.fromCharCode(l[f]);for(f+=1;f<l.length;){var g=String.fromCharCode(l[f]);f+=1,o.contains(c+g)?c+=g:(u.write(o.indexOf(c),n),o.size()<4095&&(o.size()==1<<n&&(n+=1),o.add(c+g)),c=g)}return u.write(o.indexOf(c),n),u.write(e,n),u.flush(),a.toByteArray()},h=function(){var r={},e=0,n={add:function(t){if(n.contains(t))throw"dup key:"+t;r[t]=e,e+=1},size:function(){return e},indexOf:function(t){return r[t]},contains:function(t){return void 0!==r[t]}};return n};return e}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=p();n.write(a);for(var u=function(){function e(t){a+=String.fromCharCode(r(63&t))}var n=0,o=0,i=0,a="",t={},r=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return t.writeByte=function(t){for(n=n<<8|255&t,o+=8,i+=1;6<=o;)e(n>>>o-6),o-=6},t.flush=function(){if(0<o&&(e(n<<6-o),o=n=0),i%3!=0)for(var t=3-i%3,r=0;r<t;r+=1)a+="="},t.toString=function(){return a},t}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return i}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||57344<=n?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)};
+</script>
+
+<script>
+/**
+ * =======================================================================
+ * ARQUITECTURA DEL SISTEMA Y ORQUESTADOR DE TAREAS
+ * =======================================================================
+ * Este diseño divide el programa en módulos claros con responsabilidades únicas:
+ * 1. InputValidator : Verifica y limpia las entradas de texto.
+ * 2. QRService      : Genera la imagen visual del código QR en pantalla.
+ * 3. ZipService     : Empaqueta los archivos PNG en un comprimido ZIP.
+ * 4. QROrchestrator : Coordina el flujo de trabajo en segundo plano.
+ * 5. UIController   : Conecta la interfaz con los servicios e interactúa con el usuario.
+ */
+
+// 1. VALIDADOR Y SANITIZADOR DE ENTRADAS (InputValidator)
+// Se encarga de verificar que los textos introducidos sean válidos y seguros.
+class InputValidator {
+    static prepareContent(text, type) {
+        const val = String(text || '').trim();
+        if (type === 'url' && val && !/^https?:\/\//i.test(val)) {
+            return 'https://' + val;
+        }
+        return val;
+    }
+
+    static sanitizeFilename(str, maxLen = 50) {
+        let clean = String(str)
+            .replace(/[\\/:*?"<>|\n\r\t]/g, '_')
+            .replace(/\s+/g, '_')
+            .trim()
+            .replace(/^_+|_+$/g, '');
+        if (clean.length > maxLen) clean = clean.substring(0, maxLen);
+        return clean || 'QR';
+    }
+}
+
+// 2. SERVICIO GENERADOR DE QR (QRService)
+// Se encarga únicamente del dibujo del código QR sobre un Canvas HTML5.
+class QRService {
+    static renderToCanvas(text, canvas, options = {}) {
+        const { size = 300, bg = 'white' } = options;
+        
+        const qr = qrcode(0, 'M');
+        qr.addData(text, 'Byte');
+        qr.make();
+
+        const moduleCount = qr.getModuleCount();
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, size, size);
+        if (bg === 'white') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+        }
+
+        const marginModules = 2;
+        const totalModules = moduleCount + (marginModules * 2);
+        const cellSize = size / totalModules;
+        const offset = marginModules * cellSize;
+
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < moduleCount; r++) {
+            for (let c = 0; c < moduleCount; c++) {
+                if (qr.isDark(r, c)) {
+                    const x1 = Math.round(offset + c * cellSize);
+                    const y1 = Math.round(offset + r * cellSize);
+                    const x2 = Math.round(offset + (c + 1) * cellSize);
+                    const y2 = Math.round(offset + (r + 1) * cellSize);
+                    ctx.fillRect(x1, y1, Math.max(1, x2 - x1), Math.max(1, y2 - y1));
+                }
+            }
+        }
+    }
+}
+
+// 3. SERVICIO DE COMPRESIÓN DE ARCHIVOS (ZipService)
+// Se encarga de empaquetar imágenes PNG en un archivo comprimido .ZIP de forma local.
+class ZipService {
+    static async createZipFromItems(batchItems) {
+        const localHeaders = [];
+        const cdHeaders = [];
+        let offset = 0;
+        const nameCount = {};
+
+        for (const item of batchItems) {
+            let name = InputValidator.sanitizeFilename(item.text, 50);
+            if (!name) name = `QR_${item.index + 1}`;
+
+            // Control de nombres duplicados
+            nameCount[name] = (nameCount[name] || 0) + 1;
+            const finalName = nameCount[name] > 1 ? `${name}_${nameCount[name]}.png` : `${name}.png`;
+
+            // Convertir canvas a datos binarios
+            const dataUrl = item.canvas.toDataURL('image/png');
+            const base64Data = dataUrl.replace(/^data:image\/png;base64,/, "");
+            const binaryString = atob(base64Data);
+            const fileData = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                fileData[i] = binaryString.charCodeAt(i);
+            }
+
+            const fileNameBytes = new TextEncoder().encode(finalName);
+            const crc = ZipService.crc32(fileData);
+            const size = fileData.length;
+
+            // Encabezado de archivo local
+            const lfh = new Uint8Array(30 + fileNameBytes.length);
+            const view = new DataView(lfh.buffer);
+            view.setUint32(0, 0x04034b50, true);
+            view.setUint16(4, 20, true);
+            view.setUint16(6, 0x0800, true); // UTF-8
+            view.setUint16(8, 0, true);      // Sin compresión extra
+            view.setUint16(10, 0x4000, true);
+            view.setUint16(12, 0x5821, true);
+            view.setUint32(14, crc, true);
+            view.setUint32(18, size, true);
+            view.setUint32(22, size, true);
+            view.setUint16(26, fileNameBytes.length, true);
+            view.setUint16(28, 0, true);
+            lfh.set(fileNameBytes, 30);
+
+            // Directorio central
+            const cdh = new Uint8Array(46 + fileNameBytes.length);
+            const cdView = new DataView(cdh.buffer);
+            cdView.setUint32(0, 0x02014b50, true);
+            cdView.setUint16(4, 20, true);
+            cdView.setUint16(6, 20, true);
+            cdView.setUint16(8, 0x0800, true);
+            cdView.setUint16(10, 0, true);
+            cdView.setUint16(12, 0x4000, true);
+            cdView.setUint16(14, 0x5821, true);
+            cdView.setUint32(16, crc, true);
+            cdView.setUint32(20, size, true);
+            cdView.setUint32(24, size, true);
+            cdView.setUint16(28, fileNameBytes.length, true);
+            cdView.setUint16(30, 0, true);
+            cdView.setUint16(32, 0, true);
+            cdView.setUint16(34, 0, true);
+            cdView.setUint16(36, 0, true);
+            cdView.setUint32(38, 0x20, true);
+            cdView.setUint32(42, offset, true);
+            cdh.set(fileNameBytes, 46);
+
+            localHeaders.push(lfh, fileData);
+            cdHeaders.push(cdh);
+            offset += lfh.length + fileData.length;
+        }
+
+        const cdOffset = offset;
+        let cdSize = 0;
+        for (const cdh of cdHeaders) cdSize += cdh.length;
+
+        // Registro de fin de directorio central
+        const eocd = new Uint8Array(22);
+        const eocdView = new DataView(eocd.buffer);
+        eocdView.setUint32(0, 0x06054b50, true);
+        eocdView.setUint16(4, 0, true);
+        eocdView.setUint16(6, 0, true);
+        eocdView.setUint16(8, batchItems.length, true);
+        eocdView.setUint16(10, batchItems.length, true);
+        eocdView.setUint32(12, cdSize, true);
+        eocdView.setUint32(16, cdOffset, true);
+        eocdView.setUint16(20, 0, true);
+
+        const zipParts = [...localHeaders, ...cdHeaders, eocd];
+        return new Blob(zipParts, { type: "application/zip" });
+    }
+
+    static crc32(data) {
+        if (!ZipService.crcTable) {
+            const table = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let k = 0; k < 8; k++) {
+                    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                }
+                table[i] = c;
+            }
+            ZipService.crcTable = table;
+        }
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc = (crc >>> 8) ^ ZipService.crcTable[(crc ^ data[i]) & 0xFF];
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+}
+
+// 4. ORQUESTADOR O COORDINADOR DE TAREAS (QROrchestrator)
+// Administra el proceso de generación masiva paso a paso sin congelar la pantalla.
+class QROrchestrator {
+    constructor() {
+        this.items = [];
+        this.isRunning = false;
+    }
+
+    reset() {
+        this.items = [];
+        this.isRunning = false;
+    }
+
+    async processBatch(lines, config, callbacks) {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.items = [];
+
+        const total = lines.length;
+        const chunkSize = 10;
+
+        for (let i = 0; i < total; i += chunkSize) {
+            const chunk = lines.slice(i, i + chunkSize);
+
+            for (const line of chunk) {
+                const content = InputValidator.prepareContent(line, config.type);
+                const canvas = document.createElement('canvas');
+                
+                QRService.renderToCanvas(content, canvas, {
+                    size: config.size,
+                    bg: config.bg
+                });
+
+                const itemData = {
+                    canvas: canvas,
+                    text: content,
+                    original: line,
+                    index: this.items.length
+                };
+
+                this.items.push(itemData);
+
+                if (callbacks.onItemGenerated) {
+                    callbacks.onItemGenerated(itemData, this.items.length, total);
+                }
+            }
+
+            // Pausa breve para mantener la fluidez de la interfaz
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        this.isRunning = false;
+        if (callbacks.onComplete) {
+            callbacks.onComplete(this.items);
+        }
+    }
+
+    async generateZip() {
+        if (this.items.length === 0) throw new Error('No hay QRs generados para comprimir.');
+        return await ZipService.createZipFromItems(this.items);
+    }
+}
+
+// 5. CONTROLADOR DE PANTALLA E INTERFAZ (UIController)
+// Conecta la pantalla con los servicios y responde a las acciones del usuario.
+class UIController {
+    constructor() {
+        this.orchestrator = new QROrchestrator();
+        this.initEventListeners();
+    }
+
+    // Muestra notificaciones amigables sin interrumpir la pantalla
+    static showToast(message, type = 'info') {
+        const toast = document.getElementById('toastMessage');
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+        setTimeout(() => {
+            toast.className = 'toast';
+        }, 3000);
+    }
+
+    // Modal de confirmación estilizado
+    static showConfirmModal(title, description, onConfirm) {
+        const overlay = document.getElementById('confirmModal');
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalDescription').textContent = description;
+        overlay.classList.add('show');
+
+        const btnConfirm = document.getElementById('modalBtnConfirm');
+        const btnCancel = document.getElementById('modalBtnCancel');
+
+        const close = () => {
+            overlay.classList.remove('show');
+            btnConfirm.onclick = null;
+            btnCancel.onclick = null;
+        };
+
+        btnConfirm.onclick = () => {
+            close();
+            onConfirm();
+        };
+
+        btnCancel.onclick = close;
+    }
+
+    initEventListeners() {
+        // Gestión de Pestañas
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Eventos QR Individual
+        document.getElementById('btnGenerateSingle').addEventListener('click', () => this.handleGenerateSingle());
+        document.getElementById('qrText').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.handleGenerateSingle();
+        });
+        document.getElementById('downloadBtn').addEventListener('click', () => this.handleDownloadSingle());
+
+        // Eventos QR Múltiples (Lote)
+        document.getElementById('batchGenerateBtn').addEventListener('click', () => this.handleGenerateBatch());
+        document.getElementById('downloadZipBtn').addEventListener('click', () => this.handleDownloadZip());
+        document.getElementById('btnClearBatch').addEventListener('click', () => this.handleClearBatch());
+    }
+
+    // Generar QR Individual
+    handleGenerateSingle() {
+        const rawText = document.getElementById('qrText').value;
+        const type = document.getElementById('qrType').value;
+        const content = InputValidator.prepareContent(rawText, type);
+
+        if (!content) {
+            UIController.showToast('Por favor, ingresa un texto o dirección web.', 'warning');
+            return;
+        }
+
+        const size = parseInt(document.getElementById('qrSize').value);
+        const bg = document.getElementById('qrBg').value;
+        const canvas = document.getElementById('qrCanvas');
+
+        QRService.renderToCanvas(content, canvas, { size, bg });
+
+        const previewImg = document.getElementById('qrPreview');
+        previewImg.src = canvas.toDataURL('image/png');
+        previewImg.style.display = 'block';
+        document.getElementById('placeholderText').style.display = 'none';
+        document.getElementById('downloadBtn').disabled = false;
+        
+        UIController.showToast('¡Código QR generado con éxito!', 'success');
+    }
+
+    // Descargar QR Individual
+    handleDownloadSingle() {
+        const canvas = document.getElementById('qrCanvas');
+        const text = document.getElementById('qrText').value || 'qr';
+        const filename = InputValidator.sanitizeFilename(text, 50);
+        
+        const link = document.createElement('a');
+        link.download = `${filename}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    // Generar Lote Múltiple
+    async handleGenerateBatch() {
+        const input = document.getElementById('batchInput').value;
+        const lines = input.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+        if (lines.length === 0) {
+            UIController.showToast('No hay datos para procesar. Pega alguna lista de textos.', 'warning');
+            return;
+        }
+
+        // Preparar pantalla
+        const grid = document.getElementById('batchGrid');
+        grid.innerHTML = '';
+        this.orchestrator.reset();
+
+        const progressWrapper = document.getElementById('progressWrapper');
+        const progressLabel = document.getElementById('progressLabel');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressFill = document.getElementById('progressFill');
+
+        progressWrapper.classList.add('active');
+        document.getElementById('batchGenerateBtn').disabled = true;
+        document.getElementById('statsBox').style.display = 'none';
+        document.getElementById('batchActions').style.display = 'none';
+
+        const config = {
+            type: document.getElementById('batchType').value,
+            size: parseInt(document.getElementById('batchSize').value),
+            bg: document.getElementById('batchBg').value
+        };
+
+        // Iniciar orquestación
+        await this.orchestrator.processBatch(lines, config, {
+            onItemGenerated: (item, current, total) => {
+                const pct = Math.round((current / total) * 100);
+                progressLabel.textContent = `Generando QR ${current} de ${total}...`;
+                progressPercent.textContent = `${pct}%`;
+                progressFill.style.width = `${pct}%`;
+
+                // Agregar elemento a la rejilla visual
+                const card = this.createBatchCard(item);
+                grid.appendChild(card);
+            },
+            onComplete: (items) => {
+                progressLabel.textContent = `✅ Completado: ${items.length} QRs listos`;
+                progressPercent.textContent = '100%';
+                progressFill.style.width = '100%';
+
+                document.getElementById('batchGenerateBtn').disabled = false;
+                document.getElementById('statCount').textContent = items.length;
+                document.getElementById('statsBox').style.display = 'flex';
+                document.getElementById('batchActions').style.display = 'flex';
+
+                UIController.showToast(`¡Se generaron ${items.length} códigos QR!`, 'success');
+            }
+        });
+    }
+
+    // Crear tarjeta individual en la lista múltiple
+    createBatchCard(item) {
+        const container = document.createElement('div');
+        container.className = 'batch-item';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'item-name';
+        nameDiv.textContent = item.text;
+        nameDiv.title = item.text;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-success btn-sm';
+        btn.textContent = '💾 Descargar PNG';
+        btn.onclick = () => {
+            const link = document.createElement('a');
+            let name = InputValidator.sanitizeFilename(item.text, 50);
+            if (!name) name = `QR_${item.index + 1}`;
+            link.download = `${name}.png`;
+            link.href = item.canvas.toDataURL('image/png');
+            link.click();
+        };
+
+        container.appendChild(item.canvas);
+        container.appendChild(nameDiv);
+        container.appendChild(btn);
+
+        return container;
+    }
+
+    // Descargar compresión ZIP
+    async handleDownloadZip() {
+        const zipBtn = document.getElementById('downloadZipBtn');
+        const originalText = zipBtn.innerHTML;
+
+        zipBtn.disabled = true;
+        zipBtn.innerHTML = '⏳ Comprimiendo en ZIP...';
+
+        try {
+            const blob = await this.orchestrator.generateZip();
+            const link = document.createElement('a');
+            link.href = URL.revokeObjectURL(blob) || URL.createObjectURL(blob);
+            link.download = 'QRs_Generados.zip';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            UIController.showToast('Descarga ZIP iniciada', 'success');
+        } catch (err) {
+            UIController.showToast('Error al comprimir: ' + err.message, 'danger');
+        } finally {
+            zipBtn.disabled = false;
+            zipBtn.innerHTML = originalText;
+        }
+    }
+
+    // Limpiar lote
+    handleClearBatch() {
+        UIController.showConfirmModal(
+            '¿Limpiar todos los QR?',
+            'Se borrarán los códigos generados en pantalla.',
+            () => {
+                document.getElementById('batchGrid').innerHTML = '';
+                this.orchestrator.reset();
+                document.getElementById('progressWrapper').classList.remove('active');
+                document.getElementById('statsBox').style.display = 'none';
+                document.getElementById('batchActions').style.display = 'none';
+                UIController.showToast('Lista limpiada con éxito', 'info');
+            }
+        );
+    }
+}
+
+// Inicialización cuando la página carga completamente
+window.onload = () => {
+    new UIController();
+};
+</script>
+
+</body>
+</html>
